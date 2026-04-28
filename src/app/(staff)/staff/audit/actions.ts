@@ -142,7 +142,9 @@ export async function reviewVisitDayAction(
       reviewed_at: reviewedAt,
       approved_by: intent === "approve" ? staffProfile.id : null,
       approved_at: intent === "approve" ? reviewedAt : null,
-      rejection_reason: intent === "reject" ? parsed.rejectionReason?.trim() || null : null
+      rejection_reason: intent === "reject" ? parsed.rejectionReason?.trim() || null : null,
+      exported_at: null,
+      exported_by: null
     }));
 
     const { error: updateError } = await admin.from("visits").upsert(updates, {
