@@ -64,11 +64,11 @@ export async function GET(request: Request) {
         visit_date,
         check_in_at,
         check_out_at,
+        status,
         profiles!visits_mch_profile_id_fkey(staffing_code, first_name, last_name, full_name),
         stores!visits_store_id_fkey(name)
       `
     )
-    .eq("status", "approved")
     .gte("visit_date", rangeStart)
     .lte("visit_date", rangeEnd)
     .order("visit_date")
@@ -97,13 +97,14 @@ export async function GET(request: Request) {
         ID: profile?.staffing_code ?? "",
         Store: store?.name ?? "",
         IN: formatExportTime(visit.check_in_at),
-        OUT: formatExportTime(visit.check_out_at)
+        OUT: formatExportTime(visit.check_out_at),
+        Status: visit.status ?? "pending"
       };
     }) ?? [];
 
   if (rows.length === 0) {
     return Response.json(
-      { error: "No approved visit history is available for the selected range." },
+      { error: "No visit history is available for the selected range." },
       { status: 409 }
     );
   }
