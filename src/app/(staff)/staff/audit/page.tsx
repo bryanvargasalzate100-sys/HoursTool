@@ -287,6 +287,9 @@ export default async function StaffAuditPage({ searchParams }: StaffAuditPagePro
                 <button className="audit-download-button" type="submit">
                   Download Hours XLSX
                 </button>
+                <button className="button secondary" formAction="/api/staff/export-history" type="submit">
+                  Download History XLSX
+                </button>
               </div>
             </form>
           </article>

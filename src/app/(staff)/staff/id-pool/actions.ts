@@ -28,41 +28,8 @@ function extractCodesFromRows(rows: unknown[]) {
     .filter(Boolean);
 }
 
-export async function uploadStaffingIdsAction(formData: FormData) {
-  await requireStaffUser();
-
-  const file = formData.get("ids-file");
-
-  if (!(file instanceof File) || file.size === 0) {
-    throw new Error("Select a CSV or Excel file before uploading.");
-  }
-
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: "array" });
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
-  const staffingCodes = [...new Set(extractCodesFromRows(rows))];
-
-  if (staffingCodes.length === 0) {
-    throw new Error("No valid IDs were found in the uploaded file.");
-  }
-
+async function assignAvailableCodesToEligibleProfiles() {
   const admin = createAdminSupabaseClient();
-  const { error } = await admin.from("staffing_id_pool").upsert(
-    staffingCodes.map((staffingCode) => ({
-      staffing_code: staffingCode,
-      source_file_name: file.name
-    })),
-    {
-      onConflict: "staffing_code",
-      ignoreDuplicates: true
-    }
-  );
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
   const { data: temporaryProfiles, error: temporaryProfilesError } = await admin
     .from("profiles")
     .select("id, created_at")
@@ -125,6 +92,53 @@ export async function uploadStaffingIdsAction(formData: FormData) {
       throw new Error(promotionError.message);
     }
   }
+}
+
+export async function uploadStaffingIdsAction(formData: FormData) {
+  await requireStaffUser();
+
+  const file = formData.get("ids-file");
+
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("Select a CSV or Excel file before uploading.");
+  }
+
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+  const staffingCodes = [...new Set(extractCodesFromRows(rows))];
+
+  if (staffingCodes.length === 0) {
+    throw new Error("No valid IDs were found in the uploaded file.");
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin.from("staffing_id_pool").upsert(
+    staffingCodes.map((staffingCode) => ({
+      staffing_code: staffingCode,
+      source_file_name: file.name
+    })),
+    {
+      onConflict: "staffing_code",
+      ignoreDuplicates: true
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await assignAvailableCodesToEligibleProfiles();
+
+  revalidatePath("/staff/id-pool");
+  revalidatePath("/staff/users");
+}
+
+export async function assignAvailableCodesAction() {
+  await requireStaffUser();
+
+  await assignAvailableCodesToEligibleProfiles();
 
   revalidatePath("/staff/id-pool");
   revalidatePath("/staff/users");

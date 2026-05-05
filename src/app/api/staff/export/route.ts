@@ -46,6 +46,7 @@ function parseIncludeExported(value: string | null) {
 }
 
 function buildExportRows(data: Array<{
+  mch_profile_id: string;
   visit_date: string;
   check_in_at: string;
   check_out_at: string;
@@ -63,8 +64,31 @@ function buildExportRows(data: Array<{
         last_name?: string | null;
       }>
     | null;
+  stores:
+    | {
+        name?: string | null;
+      }
+    | Array<{
+        name?: string | null;
+      }>
+    | null;
 }>) {
-  return data.flatMap((visit) => {
+  const visitsByProfileDay = new Map<string, typeof data>();
+
+  for (const visit of data) {
+    const profileDayKey = `${visit.mch_profile_id}:${visit.visit_date}`;
+    const existingVisits = visitsByProfileDay.get(profileDayKey);
+
+    if (existingVisits) {
+      existingVisits.push(visit);
+      continue;
+    }
+
+    visitsByProfileDay.set(profileDayKey, [visit]);
+  }
+
+  return Array.from(visitsByProfileDay.values()).flatMap((dayVisits) => {
+    const visit = dayVisits[0];
     const profile = getRelationData<{
       staffing_code?: string | null;
       full_name?: string | null;
@@ -83,10 +107,30 @@ function buildExportRows(data: Array<{
 
     const key = profile?.staffing_code ?? "";
     const date = formatExportDate(visit.visit_date);
+    const hasCostcoVisit = dayVisits.some((dayVisit) => {
+      const store = getRelationData<{ name?: string | null }>(dayVisit.stores);
+      return (store?.name ?? "").toLowerCase().includes("costco");
+    });
+
+    if (hasCostcoVisit) {
+      return dayVisits.flatMap((dayVisit) => [
+        [date, exportName, key, formatExportTime(dayVisit.check_in_at)],
+        [date, exportName, key, formatExportTime(dayVisit.check_out_at)]
+      ]);
+    }
+
+    const firstCheckIn = dayVisits.reduce(
+      (earliest, dayVisit) => (dayVisit.check_in_at < earliest ? dayVisit.check_in_at : earliest),
+      dayVisits[0].check_in_at
+    );
+    const lastCheckOut = dayVisits.reduce(
+      (latest, dayVisit) => (dayVisit.check_out_at > latest ? dayVisit.check_out_at : latest),
+      dayVisits[0].check_out_at
+    );
 
     return [
-      [date, exportName, key, formatExportTime(visit.check_in_at)],
-      [date, exportName, key, formatExportTime(visit.check_out_at)]
+      [date, exportName, key, formatExportTime(firstCheckIn)],
+      [date, exportName, key, formatExportTime(lastCheckOut)]
     ];
   });
 }
@@ -113,11 +157,13 @@ export async function GET(request: Request) {
     .select(
       `
         id,
+        mch_profile_id,
         visit_date,
         check_in_at,
         check_out_at,
         exported_at,
-        profiles!visits_mch_profile_id_fkey(staffing_code, first_name, last_name, full_name)
+        profiles!visits_mch_profile_id_fkey(staffing_code, first_name, last_name, full_name),
+        stores!visits_store_id_fkey(name)
       `
     )
     .eq("status", "approved")

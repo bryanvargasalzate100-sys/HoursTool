@@ -1,6 +1,6 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
-import { uploadStaffingIdsAction } from "./actions";
+import { assignAvailableCodesAction, uploadStaffingIdsAction } from "./actions";
 
 export default async function StaffIdPoolPage() {
   const admin = createAdminSupabaseClient();
@@ -43,6 +43,9 @@ export default async function StaffIdPoolPage() {
               </p>
               <div className="actions">
                 <button type="submit">Upload file</button>
+                <button className="button secondary" formAction={assignAvailableCodesAction} type="submit">
+                  Assign Available Codes
+                </button>
                 <a className="button secondary" href="/api/staff/export-users">
                   Download users XLSX
                 </a>
@@ -80,7 +83,7 @@ export default async function StaffIdPoolPage() {
       <section className="card section data-table-card">
         <h2 className="section-title">Available Codes</h2>
         <p className="section-copy">
-          {temporaryProfilesCount ?? 0} user(s) still have a temporary ID. Only {temporaryProfilesReadyForCodeCount} of them currently have hours, so only those profiles will receive codes when you upload new ones.
+          {temporaryProfilesCount ?? 0} user(s) still have a temporary ID. Only {temporaryProfilesReadyForCodeCount} of them currently have hours, so only those profiles will receive codes when you upload new ones or click assign.
         </p>
         <table className="table">
           <thead>
