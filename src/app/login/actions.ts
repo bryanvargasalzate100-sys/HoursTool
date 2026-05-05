@@ -169,23 +169,7 @@ export async function registerMchAction(
       };
     }
 
-    const { data: availableId, error: availableIdError } = await admin
-      .from("staffing_id_pool")
-      .select("id, staffing_code")
-      .eq("is_assigned", false)
-      .order("staffing_code")
-      .limit(1)
-      .maybeSingle();
-
-    if (availableIdError) {
-      return {
-        error: "We could not get an available ID for this account. Please try again.",
-        success: null
-      };
-    }
-
-    const assignedStaffingCode = availableId?.staffing_code ?? (await getNextTemporaryStaffingCode());
-    const usesTemporaryStaffingCode = !availableId;
+    const assignedStaffingCode = await getNextTemporaryStaffingCode();
 
     const { data: authResult, error: authError } = await admin.auth.admin.createUser({
       email: parsed.email,
@@ -216,7 +200,7 @@ export async function registerMchAction(
       last_name: parsed.lastName,
       phone_number: parsed.phoneNumber,
       email: parsed.email,
-      has_temporary_staffing_code: usesTemporaryStaffingCode,
+      has_temporary_staffing_code: true,
       must_reset_password: false,
       created_by: null
     });
@@ -228,28 +212,6 @@ export async function registerMchAction(
         error: `We created the auth account, but could not finish your profile setup: ${profileError.message}`,
         success: null
       };
-    }
-
-    if (availableId) {
-      const { data: assignedRows, error: assignError } = await admin
-        .from("staffing_id_pool")
-        .update({
-          is_assigned: true,
-          assigned_profile_id: authResult.user.id
-        })
-        .eq("id", availableId.id)
-        .eq("is_assigned", false)
-        .select("id");
-
-      if (assignError || !assignedRows || assignedRows.length === 0) {
-        await admin.from("profiles").delete().eq("id", authResult.user.id);
-        await admin.auth.admin.deleteUser(authResult.user.id);
-
-        return {
-          error: "We could not reserve an ID for this account. Please try again.",
-          success: null
-        };
-      }
     }
 
     const { error: signInError } = await supabase.auth.signInWithPassword({

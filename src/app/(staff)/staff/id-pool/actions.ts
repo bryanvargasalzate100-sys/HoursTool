@@ -113,28 +113,16 @@ export async function uploadStaffingIdsAction(formData: FormData) {
     const profile = profilesToPromote[index];
     const poolRow = poolRowsToAssign[index];
 
-    const { error: profileUpdateError } = await admin
-      .from("profiles")
-      .update({
-        staffing_code: poolRow.staffing_code,
-        has_temporary_staffing_code: false
-      })
-      .eq("id", profile.id);
+    const { error: promotionError } = await admin.rpc(
+      "promote_temporary_profile_staffing_code",
+      {
+        p_pool_row_id: poolRow.id,
+        p_profile_id: profile.id
+      }
+    );
 
-    if (profileUpdateError) {
-      throw new Error(profileUpdateError.message);
-    }
-
-    const { error: poolUpdateError } = await admin
-      .from("staffing_id_pool")
-      .update({
-        is_assigned: true,
-        assigned_profile_id: profile.id
-      })
-      .eq("id", poolRow.id);
-
-    if (poolUpdateError) {
-      throw new Error(poolUpdateError.message);
+    if (promotionError) {
+      throw new Error(promotionError.message);
     }
   }
 
