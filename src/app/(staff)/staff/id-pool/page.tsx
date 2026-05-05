@@ -15,6 +15,14 @@ export default async function StaffIdPoolPage() {
     .eq("role", "mch")
     .eq("has_temporary_staffing_code", true);
 
+  const { data: temporaryProfilesWithHours } = await admin
+    .from("profiles")
+    .select("id, visits!inner(id)")
+    .eq("role", "mch")
+    .eq("has_temporary_staffing_code", true);
+
+  const temporaryProfilesReadyForCodeCount = temporaryProfilesWithHours?.length ?? 0;
+
   return (
     <>
       <section className="section">
@@ -23,7 +31,7 @@ export default async function StaffIdPoolPage() {
             <p className="eyebrow">Code Intake</p>
             <h2 className="section-title">Manage Code Pool</h2>
             <p className="section-copy">
-              Upload real staffing codes here so new users receive permanent IDs and temporary codes can be replaced automatically.
+              Upload real staffing codes here so temporary IDs are replaced only for users who already have hours in the system.
             </p>
             <form className="form" action={uploadStaffingIdsAction}>
               <div className="field">
@@ -61,8 +69,8 @@ export default async function StaffIdPoolPage() {
                 <span>Codes currently loaded in the database</span>
               </div>
               <div className="audit-stat-chip audit-stat-chip-highlight">
-                <strong>{temporaryProfilesCount ?? 0}</strong>
-                <span>Users still waiting for a permanent code</span>
+                <strong>{temporaryProfilesReadyForCodeCount}</strong>
+                <span>Temporary users with hours ready for code assignment</span>
               </div>
             </div>
           </article>
@@ -72,7 +80,7 @@ export default async function StaffIdPoolPage() {
       <section className="card section data-table-card">
         <h2 className="section-title">Available Codes</h2>
         <p className="section-copy">
-          {temporaryProfilesCount ?? 0} user(s) still have a temporary ID waiting to be replaced.
+          {temporaryProfilesCount ?? 0} user(s) still have a temporary ID. Only {temporaryProfilesReadyForCodeCount} of them currently have hours, so only those profiles will receive codes when you upload new ones.
         </p>
         <table className="table">
           <thead>

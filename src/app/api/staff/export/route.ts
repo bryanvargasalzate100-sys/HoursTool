@@ -45,6 +45,52 @@ function parseIncludeExported(value: string | null) {
   return value === "1" || value === "true" || value === "on";
 }
 
+function buildExportRows(data: Array<{
+  visit_date: string;
+  check_in_at: string;
+  check_out_at: string;
+  profiles:
+    | {
+        staffing_code?: string | null;
+        full_name?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+      }
+    | Array<{
+        staffing_code?: string | null;
+        full_name?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+      }>
+    | null;
+}>) {
+  return data.flatMap((visit) => {
+    const profile = getRelationData<{
+      staffing_code?: string | null;
+      full_name?: string | null;
+      first_name?: string | null;
+      last_name?: string | null;
+    }>(visit.profiles);
+
+    const exportName =
+      [profile?.last_name, profile?.first_name]
+        .filter(Boolean)
+        .join(", ")
+        .trim()
+        .toLowerCase() ||
+      profile?.full_name?.trim().toLowerCase() ||
+      "unknown";
+
+    const key = profile?.staffing_code ?? "";
+    const date = formatExportDate(visit.visit_date);
+
+    return [
+      [date, exportName, key, formatExportTime(visit.check_in_at)],
+      [date, exportName, key, formatExportTime(visit.check_out_at)]
+    ];
+  });
+}
+
 export async function GET(request: Request) {
   const staffUser = await requireStaffUser({ onFail: "null" });
 
@@ -90,52 +136,22 @@ export async function GET(request: Request) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const rows =
-    data?.flatMap((visit) => {
-      const profile = getRelationData<{
-        staffing_code?: string | null;
-        full_name?: string | null;
-        first_name?: string | null;
-        last_name?: string | null;
-      }>(visit.profiles);
-
-      const exportName =
-        [profile?.last_name, profile?.first_name]
-          .filter(Boolean)
-          .join(", ")
-          .trim()
-          .toLowerCase() ||
-        profile?.full_name?.trim().toLowerCase() ||
-        "unknown";
-
-      const key = profile?.staffing_code ?? "";
-      const date = formatExportDate(visit.visit_date);
-
-      return [
-        {
-          Date: date,
-          "#Name": exportName,
-          Key: key,
-          Time: formatExportTime(visit.check_in_at)
-        },
-        {
-          Date: date,
-          "#Name": exportName,
-          Key: key,
-          Time: formatExportTime(visit.check_out_at)
-        }
-      ];
-    }) ?? [];
+  const rows = buildExportRows(data ?? []);
 
   const unexportedVisitIds =
     data
       ?.filter((visit) => !visit.exported_at)
       .map((visit) => visit.id) ?? [];
 
+  if (rows.length === 0) {
+    return Response.json(
+      { error: "No approved hours are ready to download for the selected range." },
+      { status: 409 }
+    );
+  }
+
   const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.json_to_sheet(rows, {
-    header: ["Date", "#Name", "Key", "Time"]
-  });
+  const worksheet = XLSX.utils.aoa_to_sheet([["Date", "#Name", "Key", "Time"], ...rows]);
   XLSX.utils.book_append_sheet(workbook, worksheet, "Hours");
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
@@ -159,7 +175,10 @@ export async function GET(request: Request) {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${includeExported ? "approved-hours-all" : "approved-hours-new"}-${rangeStart}-to-${rangeEnd}.xlsx"`
+      "Content-Disposition": `attachment; filename="${includeExported ? "approved-hours-all" : "approved-hours-new"}-${rangeStart}-to-${rangeEnd}-${Date.now()}.xlsx"`,
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0"
     }
   });
 }

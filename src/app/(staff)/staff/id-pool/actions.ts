@@ -65,7 +65,7 @@ export async function uploadStaffingIdsAction(formData: FormData) {
 
   const { data: temporaryProfiles, error: temporaryProfilesError } = await admin
     .from("profiles")
-    .select("id")
+    .select("id, created_at")
     .eq("role", "mch")
     .eq("has_temporary_staffing_code", true)
     .order("created_at");
@@ -84,7 +84,28 @@ export async function uploadStaffingIdsAction(formData: FormData) {
     throw new Error(availablePoolError.message);
   }
 
-  const profilesToPromote = temporaryProfiles ?? [];
+  const temporaryProfileIds = (temporaryProfiles ?? []).map((profile) => profile.id);
+  let profilesToPromote: Array<{ id: string; created_at?: string | null }> = [];
+
+  if (temporaryProfileIds.length > 0) {
+    const { data: visitsWithProfiles, error: visitsWithProfilesError } = await admin
+      .from("visits")
+      .select("mch_profile_id")
+      .in("mch_profile_id", temporaryProfileIds);
+
+    if (visitsWithProfilesError) {
+      throw new Error(visitsWithProfilesError.message);
+    }
+
+    const eligibleProfileIds = new Set(
+      (visitsWithProfiles ?? []).map((visit) => visit.mch_profile_id)
+    );
+
+    profilesToPromote = (temporaryProfiles ?? []).filter((profile) =>
+      eligibleProfileIds.has(profile.id)
+    );
+  }
+
   const poolRowsToAssign = availablePoolRows ?? [];
   const promotions = Math.min(profilesToPromote.length, poolRowsToAssign.length);
 
