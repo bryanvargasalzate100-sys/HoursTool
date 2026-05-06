@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 type Option = {
   id: string;
   label: string;
+  description?: string | null;
 };
 
 type SearchableSelectProps = {
@@ -41,14 +42,21 @@ export function SearchableSelect({
   variant = "default"
 }: SearchableSelectProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const loadOptionsRef = useRef(loadOptions);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [remoteOptions, setRemoteOptions] = useState<Option[]>(options);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+  const [hasLoadError, setHasLoadError] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const resolvedSelectedId = value ?? selectedId;
   const resolvedQuery = controlledQuery ?? query;
+  const hasRemoteLoader = Boolean(loadOptions);
+
+  useEffect(() => {
+    loadOptionsRef.current = loadOptions;
+  }, [loadOptions]);
 
   useEffect(() => {
     if (typeof value === "string") {
@@ -65,21 +73,27 @@ export function SearchableSelect({
   }, [controlledQuery, selectedLabel]);
 
   useEffect(() => {
-    if (!loadOptions) {
+    if (!hasRemoteLoader) {
       setRemoteOptions(options);
     }
-  }, [loadOptions, options]);
+  }, [hasRemoteLoader, options]);
 
   useEffect(() => {
-    if (!loadOptions) {
+    if (!hasRemoteLoader) {
       return;
     }
 
-    const activeLoader = loadOptions;
+    const activeLoader = loadOptionsRef.current;
     let cancelled = false;
 
     async function run() {
+      if (!activeLoader) {
+        return;
+      }
+
       setIsLoadingOptions(true);
+      setHasLoadError(false);
+      setRemoteOptions([]);
 
       try {
         const nextOptions = await activeLoader(deferredQuery);
@@ -90,6 +104,7 @@ export function SearchableSelect({
       } catch {
         if (!cancelled) {
           setRemoteOptions([]);
+          setHasLoadError(true);
         }
       } finally {
         if (!cancelled) {
@@ -103,7 +118,7 @@ export function SearchableSelect({
     return () => {
       cancelled = true;
     };
-  }, [deferredQuery, loadOptions]);
+  }, [deferredQuery, hasRemoteLoader]);
 
   const filteredOptions = useMemo(() => {
     if (loadOptions) {
@@ -165,13 +180,17 @@ export function SearchableSelect({
             <div className="searchable-select-meta">
               {isLoadingOptions
                 ? "Searching..."
-                : query.trim()
+                : hasLoadError
+                  ? "Search failed. Keep typing to retry."
+                : resolvedQuery.trim()
                   ? `${filteredOptions.length} result(s) shown`
-                  : loadOptions
+                  : hasRemoteLoader
                     ? "Type to search stores"
                     : `Type to search across ${options.length} store(s)`}
             </div>
-            {filteredOptions.length > 0 ? (
+            {isLoadingOptions ? (
+              <div className="searchable-select-empty">Searching stores...</div>
+            ) : filteredOptions.length > 0 ? (
               filteredOptions.map((option) => {
                 const isSelected = option.id === resolvedSelectedId;
 
@@ -188,7 +207,10 @@ export function SearchableSelect({
                       setIsOpen(false);
                     }}
                   >
-                    {option.label}
+                    <span className="searchable-select-option-label">{option.label}</span>
+                    {option.description ? (
+                      <span className="searchable-select-option-meta">{option.description}</span>
+                    ) : null}
                   </button>
                 );
               })

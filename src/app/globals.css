@@ -1159,6 +1159,21 @@ button {
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
 
+.searchable-select-option-label,
+.searchable-select-option-meta {
+  display: block;
+}
+
+.searchable-select-option-label {
+  font-weight: 700;
+}
+
+.searchable-select-option-meta {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .searchable-select-option:hover,
 .searchable-select-option-active {
   background: rgba(63, 167, 52, 0.1);

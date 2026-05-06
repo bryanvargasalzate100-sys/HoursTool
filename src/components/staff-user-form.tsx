@@ -31,6 +31,7 @@ const initialState: StaffUserFormState = {
 type StoreOption = {
   id: string;
   name: string;
+  customer: string | null;
 };
 
 export function StaffUserForm({ action, availableCodes, agencies }: StaffUserFormProps) {
@@ -135,7 +136,8 @@ export function StaffUserForm({ action, availableCodes, agencies }: StaffUserFor
 
             return data.map((store) => ({
               id: store.id,
-              label: store.name
+              label: store.name,
+              description: store.customer
             }));
           }}
           disabled={storesLoading}

@@ -306,11 +306,16 @@ export function MchVisitForm({
                       throw new Error("Could not load stores.");
                     }
 
-                    const data = (await response.json()) as Array<{ id: string; name: string }>;
+                    const data = (await response.json()) as Array<{
+                      id: string;
+                      name: string;
+                      customer: string | null;
+                    }>;
 
                     return data.map((store) => ({
                       id: store.id,
-                      label: store.name
+                      label: store.name,
+                      description: store.customer
                     }));
                   }}
                   disabled={storesLoading}
