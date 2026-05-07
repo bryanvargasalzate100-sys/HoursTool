@@ -68,7 +68,6 @@ export default async function MchVisitsPage({ searchParams }: MchVisitsPageProps
   const selectedDate = parseDateParam(resolvedSearchParams?.date, today);
   const selectedDateKey = toDateOnly(selectedDate);
   const todayKey = toDateOnly(today);
-  const canSubmit = selectedDateKey === todayKey;
   const startOfWeek = addDays(selectedDate, -selectedDate.getDay());
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(startOfWeek, index));
   const previousWeekDate = toDateOnly(addDays(startOfWeek, -7));
@@ -186,8 +185,8 @@ export default async function MchVisitsPage({ searchParams }: MchVisitsPageProps
                 <span>Current day in focus</span>
               </div>
               <div className="audit-stat-chip audit-stat-chip-highlight">
-                <strong>{canSubmit ? "Open" : "Closed"}</strong>
-                <span>{canSubmit ? "You can add visits for today" : "Only today can receive new visits"}</span>
+                <strong>{selectedDateKey === todayKey ? "Today" : "Yesterday + Today"}</strong>
+                <span>Visit entry follows the merchandiser&apos;s local date and accepts today plus yesterday.</span>
               </div>
             </div>
           </article>
@@ -201,7 +200,6 @@ export default async function MchVisitsPage({ searchParams }: MchVisitsPageProps
             stores={stores ?? []}
             visits={visitRows}
             selectedDate={selectedDateKey}
-            canSubmit={canSubmit}
           />
         </article>
       </section>

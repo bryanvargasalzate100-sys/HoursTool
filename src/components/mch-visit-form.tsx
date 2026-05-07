@@ -25,7 +25,6 @@ type MchVisitFormProps = {
     rejectionReason: string | null;
   }>;
   selectedDate: string;
-  canSubmit: boolean;
 };
 
 const initialState: MchVisitFormState = {
@@ -36,8 +35,7 @@ const initialState: MchVisitFormState = {
 export function MchVisitForm({
   stores,
   visits,
-  selectedDate,
-  canSubmit
+  selectedDate
 }: MchVisitFormProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [state, formAction, isPending] = useActionState(createVisitAction, initialState);
@@ -94,6 +92,15 @@ export function MchVisitForm({
     const [hour = "0", minute = "0"] = value.split(":");
     return Number(hour) * 60 + Number(minute);
   }
+
+  function shiftDateOnly(value: string, days: number) {
+    const date = new Date(`${value}T00:00:00`);
+    date.setDate(date.getDate() + days);
+    return date.toISOString().slice(0, 10);
+  }
+
+  const previousLocalDate = currentLocalDate ? shiftDateOnly(currentLocalDate, -1) : "";
+  const canSubmit = selectedDate === currentLocalDate || selectedDate === previousLocalDate;
 
   function openVisitModal(startMinutes: number, endMinutes: number) {
     const normalizedStart = Math.max(0, Math.min(startMinutes, 23 * 60));
@@ -174,7 +181,7 @@ export function MchVisitForm({
         </button>
       </div>
 
-      {!canSubmit ? <p className="note">You can only add visits for today.</p> : null}
+      {!canSubmit ? <p className="note">You can only add visits for today or yesterday.</p> : null}
       {state.success ? <p className="form-success">{state.success}</p> : null}
 
       <div className="timeline-card section">

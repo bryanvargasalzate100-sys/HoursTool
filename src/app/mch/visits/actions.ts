@@ -25,6 +25,12 @@ function buildLocalDateTime(date: string, time: string) {
   return `${date}T${time}`;
 }
 
+function shiftDateOnly(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function getRelationName(
   relation: { name?: string | null } | Array<{ name?: string | null }> | null | undefined
 ) {
@@ -83,10 +89,14 @@ export async function createVisitAction(
 
   const currentLocalDate = String(formData.get("currentLocalDate") ?? "").trim();
   const timezoneOffsetMinutes = Number(formData.get("timezoneOffsetMinutes") ?? "0");
+  const previousLocalDate = currentLocalDate ? shiftDateOnly(currentLocalDate, -1) : "";
 
-  if (!currentLocalDate || parsed.visitDate !== currentLocalDate) {
+  if (
+    !currentLocalDate ||
+    (parsed.visitDate !== currentLocalDate && parsed.visitDate !== previousLocalDate)
+  ) {
     return {
-      error: "You can only log hours for today.",
+      error: "You can only log hours for today or yesterday.",
       success: null
     };
   }
